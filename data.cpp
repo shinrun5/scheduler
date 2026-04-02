@@ -43,7 +43,7 @@ void addEmployee(sqlite3* db, Employee &emp) {
 
     // 1. Build the SQL "Sentence"
     // Note: name needs ' ' around it because it's text!
-    string sql = "INSERT INTO employees (name, pin, StoreID) VALUES ('" 
+    string sql = "INSERT INTO employees (name, EmployeePin, StoreID) VALUES ('" 
                  + emp.name + "', '" 
                  + emp.pin + "', '" 
                  + emp.StoreID + "');";
@@ -60,6 +60,30 @@ void addEmployee(sqlite3* db, Employee &emp) {
     }
 }
 
+void addSchedule(sqlite3* db, string pin, int Day, int start, int end)
+{
+    char* errorMessage = nullptr;
+
+    //add hours for specific days into the schedule
+    string sql = "INSERT INTO schedule (EmployeePin, Date, start_time, end_time) VALUES ('"
+                 + pin + "', "
+                 + to_string(Day) + ", "
+                 + to_string(start) + ", "
+                 + to_string(end) + ");";
+
+    // 2. "Speak" the SQL to the database
+    int result = sqlite3_exec(db, sql.c_str(), NULL, 0, &errorMessage);
+
+    // 3. Check if it worked
+    if (result != SQLITE_OK) {
+        cerr << "Error adding Schedule: " << errorMessage << endl;
+        sqlite3_free(errorMessage);
+    } else {
+        cout << "Schedule added for PIN: " << pin << endl;
+    }
+
+}
+
 int main() {
     sqlite3* db;
     char* errorMessage = nullptr;
@@ -71,22 +95,35 @@ int main() {
     }
 
     // 2. Define your SQL table blueprint
-    string createTableSQL = "CREATE TABLE IF NOT EXISTS employees ("
+    string EmployeeTable = "CREATE TABLE IF NOT EXISTS employees ("
                             "EmployeeID INTEGER PRIMARY KEY AUTOINCREMENT,"
-                            "name TEXT, pin TEXT, StoreID TEXT);";
+                            "name TEXT, EmployeePin TEXT UNIQUE, StoreID TEXT UNIQUE);";
 
-    int result = sqlite3_exec(db, createTableSQL.c_str(), NULL, 0, &errorMessage);
+    string ScheduleTable = "CREATE TABLE IF NOT EXISTS schedule ("
+                            "ScheduleID INTEGER PRIMARY KEY AUTOINCREMENT,"
+                            "EmployeePin TEXT, Date INTEGER, start_time INTEGER, end_time INTEGER);";
+
+    
+
+    int result = sqlite3_exec(db, EmployeeTable.c_str(), NULL, 0, &errorMessage);
+    int result2 = sqlite3_exec(db, ScheduleTable.c_str(), NULL, 0, &errorMessage);
 
     if (result != SQLITE_OK) {
-        cerr << "SQL Error: " << errorMessage << endl;
+        cerr << "Employee Table Error: " << errorMessage << endl;
         sqlite3_free(errorMessage);
     } else {
-        cout << "Database is ready to go!" << endl;
+    }
+
+    if (result2 != SQLITE_OK) {
+        cerr << "Employee Table Error: " << errorMessage << endl;
+        sqlite3_free(errorMessage);
+    } else {
     }
 
     Employee Daniel("Daniel", "1", "0602");
     addEmployee(db, Daniel);
 
+    addSchedule(db, "0602", 1024, 100, 500);
     // 4. Close the connection when done
     sqlite3_close(db);
 
