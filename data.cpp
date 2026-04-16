@@ -60,6 +60,27 @@ void addEmployee(sqlite3* db, Employee &emp) {
     }
 }
 
+//Takes values passed from loadStaff and create the employee object using the data so any computation can be done much faster
+int employeeCallback(void* data, int argc, char** argv, char** azColName)
+{
+    vector<Employee>* staff = (vector<Employee>*)data;
+    if (argv[1] && argv[3] && argv[2]) {
+        staff->push_back(Employee(argv[1], argv[3], argv[2]));
+    }
+    return 0;
+}
+
+//takes all data from the employee database and put it into allstaff which is then passed into employeeCallBack
+void loadStaff(sqlite3* db, vector<Employee> &allStaff)
+{
+    char* errorMessage = nullptr;
+    int result = sqlite3_exec(db, "SELECT * FROM employees;", employeeCallback, &allStaff, nullptr);
+    if (result != SQLITE_OK) {
+        cerr << "Error loading staff: " << errorMessage << endl;
+        sqlite3_free(errorMessage);
+    }
+}
+
 void addSchedule(sqlite3* db, string pin, int Day, int start, int end)
 {
     char* errorMessage = nullptr;
@@ -81,27 +102,39 @@ void addSchedule(sqlite3* db, string pin, int Day, int start, int end)
     } else {
         cout << "Schedule added for PIN: " << pin << endl;
     }
-
 }
 
-int employeeCallback(void* data, int argc, char** argv, char** azColName)
+int scheduleCallBack(void* data, int argc, char** argv, char** azColName)
 {
     vector<Employee>* staff = (vector<Employee>*)data;
-    if (argv[1] && argv[3] && argv[2]) {
-        staff->push_back(Employee(argv[1], argv[3], argv[2]));
+    
+    string pinFromDB = argv[1];
+    for (auto& emp : *staff) 
+    { 
+    
+        if (emp.pin == pinFromDB) 
+        { 
+            hours newShift = { stoi(argv[2]), stoi(argv[3]), stoi(argv[4]) };
+            emp.Hours.push_back(newShift); 
+        
+            break; 
+        }
     }
     return 0;
+
 }
 
-void loadStaff(sqlite3* db, vector<Employee> &allStaff)
+void loadSchedule(sqlite3* db, vector<Employee> &allStaff)
 {
     char* errorMessage = nullptr;
-    int result = sqlite3_exec(db, "SELECT * FROM employees;", employeeCallback, &allStaff, nullptr);
+
+    int result = sqlite3_exec(db, "SELECT * FROM schedule", scheduleCallBack, &allStaff, nullptr);
     if (result != SQLITE_OK) {
-        cerr << "Error loading staff: " << errorMessage << endl;
+        cerr << "Error loading schedule: " << errorMessage << endl;
         sqlite3_free(errorMessage);
     }
 }
+
 
 
 int main() {
@@ -117,7 +150,7 @@ int main() {
     // 2. Define your SQL table blueprint
     string EmployeeTable = "CREATE TABLE IF NOT EXISTS employees ("
                             "EmployeeID INTEGER PRIMARY KEY AUTOINCREMENT,"
-                            "name TEXT, EmployeePin TEXT UNIQUE, StoreID TEXT UNIQUE);";
+                            "name TEXT, EmployeePin TEXT UNIQUE, StoreID TEXT);";
 
     string ScheduleTable = "CREATE TABLE IF NOT EXISTS schedule ("
                             "ScheduleID INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -146,22 +179,49 @@ int main() {
     // --- TEST 1: ADD DATA ---
     cout << "--- Testing: Adding Employees ---" << endl;
     Employee dan("Daniel", "Mango Mango", "0602");
+    Employee dan2("Danny", "Ciao Poke", "0000");
     Employee testUser("Alex", "Ciao Poke", "1234");
     
     addEmployee(db, dan);
+    addEmployee(db, dan2);
     addEmployee(db, testUser);
 
-    // --- TEST 2: LOAD DATA ---
+
+    /// --- TEST 2: ADD SCHEDULE ---
+    addSchedule(db, "0602", 1024, 690, 1410);
+    addSchedule(db, "0602", 1025, 690, 1060);
+    addSchedule(db, "1234", 1025, 850, 1410);
+
+    // --- TEST 3: LOAD DATA ---
     cout << "--- Testing: Loading Data from DB to C++ ---" << endl;
     vector<Employee> currentStaff;
     loadStaff(db, currentStaff);
+    loadSchedule(db, currentStaff);
 
-    // --- TEST 3: VERIFY ---
+    // --- TEST 4: VERIFY ---
     cout << "Found " << currentStaff.size() << " employees in database:" << endl;
     for (const auto& emp : currentStaff) 
     {
         cout << " - Name: " << emp.name << " | Store: " << emp.StoreID << " | PIN: " << emp.pin << endl;
-    }
+        if (emp.Hours.empty())
+        {
+            cout << "NO SHIFT ASSIGNED" << endl;
+        }
+        else
+        {
+            for(const auto& shift: emp.Hours)
+            {
+                cout << "  - Date: " << shift.Day 
+                     << " | " << shift.StartTime / 60 << ":" << (shift.StartTime % 60 < 10 ? "0" : "") << shift.StartTime % 60 
+                     << " to " << shift.EndTime / 60 << ":" << (shift.EndTime % 60 < 10 ? "0" : "") << shift.EndTime % 60 << endl;
+            }
+        }
+    } 
+
+
+    sqlite3_close(db);
+
+
     return 0;
 }
 
