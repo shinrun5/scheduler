@@ -84,6 +84,26 @@ void addSchedule(sqlite3* db, string pin, int Day, int start, int end)
 
 }
 
+int employeeCallback(void* data, int argc, char** argv, char** azColName)
+{
+    vector<Employee>* staff = (vector<Employee>*)data;
+    if (argv[1] && argv[3] && argv[2]) {
+        staff->push_back(Employee(argv[1], argv[3], argv[2]));
+    }
+    return 0;
+}
+
+void loadStaff(sqlite3* db, vector<Employee> &allStaff)
+{
+    char* errorMessage = nullptr;
+    int result = sqlite3_exec(db, "SELECT * FROM employees;", employeeCallback, &allStaff, nullptr);
+    if (result != SQLITE_OK) {
+        cerr << "Error loading staff: " << errorMessage << endl;
+        sqlite3_free(errorMessage);
+    }
+}
+
+
 int main() {
     sqlite3* db;
     char* errorMessage = nullptr;
@@ -108,25 +128,40 @@ int main() {
     int result = sqlite3_exec(db, EmployeeTable.c_str(), NULL, 0, &errorMessage);
     int result2 = sqlite3_exec(db, ScheduleTable.c_str(), NULL, 0, &errorMessage);
 
-    if (result != SQLITE_OK) {
+    if (result != SQLITE_OK) 
+    {
         cerr << "Employee Table Error: " << errorMessage << endl;
         sqlite3_free(errorMessage);
     } else {
     }
 
-    if (result2 != SQLITE_OK) {
+    if (result2 != SQLITE_OK) 
+    {
         cerr << "Employee Table Error: " << errorMessage << endl;
         sqlite3_free(errorMessage);
-    } else {
+    } else 
+    {
     }
 
-    Employee Daniel("Daniel", "1", "0602");
-    addEmployee(db, Daniel);
+    // --- TEST 1: ADD DATA ---
+    cout << "--- Testing: Adding Employees ---" << endl;
+    Employee dan("Daniel", "Mango Mango", "0602");
+    Employee testUser("Alex", "Ciao Poke", "1234");
+    
+    addEmployee(db, dan);
+    addEmployee(db, testUser);
 
-    addSchedule(db, "0602", 1024, 100, 500);
-    // 4. Close the connection when done
-    sqlite3_close(db);
+    // --- TEST 2: LOAD DATA ---
+    cout << "--- Testing: Loading Data from DB to C++ ---" << endl;
+    vector<Employee> currentStaff;
+    loadStaff(db, currentStaff);
 
+    // --- TEST 3: VERIFY ---
+    cout << "Found " << currentStaff.size() << " employees in database:" << endl;
+    for (const auto& emp : currentStaff) 
+    {
+        cout << " - Name: " << emp.name << " | Store: " << emp.StoreID << " | PIN: " << emp.pin << endl;
+    }
     return 0;
 }
 
